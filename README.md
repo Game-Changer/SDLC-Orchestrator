@@ -25,9 +25,20 @@ The LLM client (Claude / Copilot) is the "Main Agent" the user talks to. This se
 | `get_agent_standards` | Mandatory coding standards for generated code | ✅ Phase 1 |
 | `generate_user_story` | Draft story template (local, never touches Jira) | ✅ Phase 1 |
 | `create_jira_story` | Gated write — preview until `confirm=true` | 🔒 Gate live, Jira in Phase 2 |
+| `review_dev_code` | Dev Code Reviewer: Salesforce security + best-practice review protocol | ✅ Available |
+| `review_qa_code` | QA Code Reviewer: standards-compliance + security review protocol | ✅ Available |
+| `run_qa_tests` | Execute the QA suite by tag (test-runner.js, headless) | ✅ Available |
+| `run_dev_tests` | Run Apex tests via `sf` against the authorized org | ✅ Available |
 | `write_test_cases` | Manual test cases from a story | ⏳ Phase 3 |
 | `generate_qa_automation` | Cucumber/Playwright specs | ⏳ Phase 4 |
 | `generate_dev_code` | Apex/LWC/Flow changes (local only) | ⏳ Phase 5 |
+
+### Sub-agents (7)
+
+Five pipeline agents — User Story Generator, Agile Board Connector, Test Case Writer, QA Automation Writer, Dev Code Generator (Phases 2–5) — plus two **review agents available today**:
+
+- **dev-code-reviewer** — reviews Salesforce code: SOQL injection, CRUD/FLS, sharing, bulkification, governor limits, test quality; verifies by running Apex tests
+- **qa-code-reviewer** — reviews automation code against AgentInstructions.md: OOP structure, typed exception handling, credential hygiene; verifies by running the tagged suite
 
 ## Setup
 
@@ -98,6 +109,7 @@ You should see a `tools/list` response naming all nine tools.
 ## Security model
 
 - **Read-only context** — no tool writes to either repo; agents write only local files, humans push
+- **Test execution is sandboxed to known commands** — `run_qa_tests` / `run_dev_tests` execute only the fixed repo test entry points with regex-validated arguments (no arbitrary commands), with timeouts and bounded output
 - **Path traversal guard** — file access is resolved and verified to stay inside the repo root
 - **Blocklist** — `.env`, `.auth/`, `.git/`, `node_modules/`, `dist/`, `reports/` are never readable
 - **Gated writes** — `create_jira_story` returns a preview until called with `confirm=true`, which agents may only set after explicit human approval of that exact story

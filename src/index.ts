@@ -23,6 +23,10 @@ import { z } from 'zod';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+
+const execFileAsync = promisify(execFile);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WORKSPACE_ROOT = path.resolve(__dirname, '../..');
@@ -104,6 +108,8 @@ const ROUTES: Route[] = [
   { agent: 'qa-automation-writer', phase: 4, status: 'planned', keywords: /\b(automat(e|ion)|playwright|cucumber|bdd|feature file|selenium|regression suite)\b/i },
   { agent: 'dev-code-generator', phase: 5, status: 'planned', keywords: /\b(apex|lwc|lightning web component|trigger|flow|validation rule|salesforce code|metadata)\b/i },
   { agent: 'agile-board-connector', phase: 2, status: 'planned', keywords: /\b(jira|board|sprint|backlog|ticket|issue)\b/i },
+  { agent: 'dev-code-reviewer', phase: 1, status: 'available', keywords: /\b(review|audit|security (issue|scan|review)|static analysis|code quality)\b.*\b(apex|lwc|trigger|flow|dev|salesforce)\b|\b(apex|lwc|trigger|flow)\b.*\b(review|audit|scan)\b/i },
+  { agent: 'qa-code-reviewer', phase: 1, status: 'available', keywords: /\b(review|audit|security (issue|scan|review)|static analysis|code quality|standards? compliance)\b.*\b(qa|automation|test|framework|playwright|cucumber)\b|\b(automation|framework)\b.*\b(review|audit)\b/i },
 ];
 
 const server = new McpServer({
@@ -313,6 +319,188 @@ server.registerTool(
         },
       ],
     };
+  }
+);
+
+// --- Code review agents (available now — read-only + local test execution) --
+
+server.registerTool(
+  'review_dev_code',
+  {
+    title: 'Dev Code Reviewer: review protocol for Salesforce code',
+    description:
+      'Returns the review protocol for Salesforce dev code (Apex/LWC/Flow): security checklist, best-practice rules, and testing steps. ' +
+      'Follow the protocol: read the files with read_repo_file, evaluate every checklist item, report findings with severity and file:line, then run run_dev_tests.',
+    inputSchema: {
+      scope: z.string().default('all changed files').describe('What is being reviewed, e.g. a class name, folder, or "all changed files"'),
+    },
+  },
+  async ({ scope }) => ({
+    content: [
+      {
+        type: 'text' as const,
+        text: JSON.stringify(
+          {
+            reviewer: 'dev-code-reviewer',
+            scope,
+            security_checklist: [
+              'SOQL injection: no string concatenation in queries — bind variables only',
+              'CRUD/FLS: enforce with WITH USER_MODE, Security.stripInaccessible, or explicit isAccessible/isUpdateable checks',
+              'Sharing: every class declares "with sharing" (or documents WHY "without sharing" is required)',
+              'No hardcoded IDs, credentials, endpoints, or org URLs — use Custom Metadata/Named Credentials',
+              'LWC: no unsanitized innerHTML / lwc:dom="manual" misuse; no eval-like patterns',
+              'No secrets in Custom Labels, Custom Settings, or debug logs',
+            ],
+            best_practices_checklist: [
+              'Bulkification: no SOQL or DML inside loops; handle 200-record batches',
+              'Governor limits: aggregate queries, use Maps for lookups, avoid nested queries in loops',
+              'One trigger per object, logic delegated to a handler class',
+              'Defensive coding: null checks, empty-list guards, try-catch with meaningful handling',
+              'Tests: >= 75% coverage, real assertions (not just coverage), @TestSetup used, no @SeeAllData=true',
+              'Naming and ApexDoc consistent with existing classes in force-app/',
+            ],
+            testing_steps: [
+              'Run run_dev_tests (optionally scoped to the relevant test class)',
+              'Confirm all tests pass and coverage did not drop',
+            ],
+            report_format:
+              'For each finding: severity (Critical/Major/Minor), file:line, what is wrong, and the concrete fix. End with a verdict: APPROVE / APPROVE WITH COMMENTS / REQUEST CHANGES.',
+          },
+          null,
+          2
+        ),
+      },
+    ],
+  })
+);
+
+server.registerTool(
+  'review_qa_code',
+  {
+    title: 'QA Code Reviewer: review protocol for automation code',
+    description:
+      'Returns the review protocol for QA automation code: standards compliance (AgentInstructions.md), security checklist, and testing steps. ' +
+      'Follow the protocol: call get_agent_standards for the full standards, read the files with read_repo_file, evaluate every item, report findings with severity and file:line, then run run_qa_tests.',
+    inputSchema: {
+      scope: z.string().default('all changed files').describe('What is being reviewed, e.g. a page object, feature file, or "all changed files"'),
+    },
+  },
+  async ({ scope }) => ({
+    content: [
+      {
+        type: 'text' as const,
+        text: JSON.stringify(
+          {
+            reviewer: 'qa-code-reviewer',
+            scope,
+            standards_source: 'Call get_agent_standards for the full mandatory standards (AgentInstructions.md). Key items below.',
+            oop_checklist: [
+              'New page = locator class + page class extending BasePage + exported singleton (never static page classes)',
+              'Page implements pageName getter and its own waitForPageLoad()',
+              'Pure-static utility/locator classes have a private constructor',
+              'Playwright APIs touched ONLY inside src/utils/ — pages call utils, steps call pages',
+              'Reuse existing InputUtils/WaitUtils/SalesforceLogin helpers before adding new ones',
+            ],
+            exception_handling_checklist: [
+              'Every method has try/catch — no raw Playwright errors escaping',
+              'Typed errors from src/exceptions: BrowserError, ElementActionError, WaitTimeoutError, ConfigurationError',
+              'catch (error: unknown) — never any; messages via FrameworkError.messageFrom',
+              'Layering: utils wrap+type, pages log+rethrow, steps log business meaning+rethrow',
+            ],
+            security_checklist: [
+              'No hardcoded credentials, usernames, passwords, tokens, or org URLs anywhere (feature files included)',
+              'New env vars added to Config, Config.validate(), AND .env.example',
+              'Nothing reads or writes .env or .auth/; no secrets in logs',
+            ],
+            general_checklist: [
+              'Logger only — no console.log; no hard sleeps (waitForTimeout as delay)',
+              'cucumber.js parallel stays 1; browser lifecycle only in Before/After hooks',
+              'New tags: npm scripts + launch.json + README table updated (dashboard auto-discovers)',
+            ],
+            testing_steps: ['Run run_qa_tests with the affected tag (e.g. @Smoke or the new feature tag)', 'All scenarios must pass'],
+            report_format:
+              'For each finding: severity (Critical/Major/Minor), file:line, what is wrong, and the concrete fix. End with a verdict: APPROVE / APPROVE WITH COMMENTS / REQUEST CHANGES.',
+          },
+          null,
+          2
+        ),
+      },
+    ],
+  })
+);
+
+server.registerTool(
+  'run_qa_tests',
+  {
+    title: 'Run QA automation tests by tag',
+    description:
+      'Executes the QA test suite for one tag (via test-runner.js in the QA repo) and returns the result. Headless, sequential. Used by the qa-code-reviewer to verify changes.',
+    inputSchema: {
+      tag: z.string().regex(/^@[A-Za-z0-9_-]+$/, 'Tag must look like @Smoke').describe('Cucumber tag to run, e.g. @Smoke'),
+    },
+  },
+  async ({ tag }) => {
+    try {
+      if (!fs.existsSync(path.join(REPOS.qa, 'test-runner.js'))) {
+        throw new Error(`QA repo with test-runner.js not found at: ${REPOS.qa}`);
+      }
+      const { stdout, stderr } = await execFileAsync('node', ['test-runner.js', tag], {
+        cwd: REPOS.qa,
+        timeout: 10 * 60 * 1000,
+        maxBuffer: 10 * 1024 * 1024,
+      });
+      const output = (stdout + '\n' + stderr).trim();
+      return { content: [{ type: 'text' as const, text: `EXIT: success\n\n...${output.slice(-3000)}` }] };
+    } catch (error: unknown) {
+      const err = error as { stdout?: string; stderr?: string; message?: string };
+      const output = ((err.stdout ?? '') + '\n' + (err.stderr ?? '')).trim();
+      return {
+        content: [{ type: 'text' as const, text: `EXIT: FAILED (${err.message ?? 'unknown error'})\n\n...${output.slice(-3000)}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.registerTool(
+  'run_dev_tests',
+  {
+    title: 'Run Salesforce Apex tests',
+    description:
+      'Runs Apex tests against the default authorized org via the Salesforce CLI (sf). Optionally scoped to one test class. Used by the dev-code-reviewer to verify changes. Requires sf CLI installed and an authorized org.',
+    inputSchema: {
+      test_class: z.string().regex(/^[A-Za-z0-9_]*$/).default('').describe('Optional Apex test class name; empty = run all local tests'),
+    },
+  },
+  async ({ test_class }) => {
+    try {
+      const args = ['apex', 'run', 'test', '--synchronous', '--result-format', 'human', '--code-coverage'];
+      if (test_class) {
+        args.push('--class-names', test_class);
+      } else {
+        args.push('--test-level', 'RunLocalTests');
+      }
+      const { stdout, stderr } = await execFileAsync('sf', args, {
+        cwd: REPOS.dev,
+        timeout: 10 * 60 * 1000,
+        maxBuffer: 10 * 1024 * 1024,
+      });
+      const output = (stdout + '\n' + stderr).trim();
+      return { content: [{ type: 'text' as const, text: `EXIT: success\n\n...${output.slice(-3000)}` }] };
+    } catch (error: unknown) {
+      const err = error as { code?: string; stdout?: string; stderr?: string; message?: string };
+      if (err.code === 'ENOENT') {
+        return {
+          content: [{ type: 'text' as const, text: 'Error: Salesforce CLI (sf) is not installed on this machine — install it or run Apex tests via the CI/CD pipeline instead.' }],
+          isError: true,
+        };
+      }
+      const output = ((err.stdout ?? '') + '\n' + (err.stderr ?? '')).trim();
+      return {
+        content: [{ type: 'text' as const, text: `EXIT: FAILED (${err.message ?? 'unknown error'})\n\n...${output.slice(-3000)}` }],
+        isError: true,
+      };
+    }
   }
 );
 
