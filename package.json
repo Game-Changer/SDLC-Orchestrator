@@ -1,0 +1,21 @@
+{
+  "name": "sdlc-orchestrator",
+  "version": "0.1.0",
+  "description": "MCP server: multi-agent Salesforce SDLC orchestrator (Phase 1 skeleton)",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.0",
+    "typescript": "^6.0.3"
+  }
+}

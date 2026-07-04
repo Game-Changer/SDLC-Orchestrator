@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Compiled output
+dist/
+
+# Environment variables (Phase 2 will add Jira tokens here — NEVER commit)
+.env
+.env.local
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
