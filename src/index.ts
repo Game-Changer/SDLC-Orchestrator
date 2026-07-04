@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * SDLC Orchestrator — MCP server (Phase 1 skeleton)
  *
@@ -26,9 +27,26 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WORKSPACE_ROOT = path.resolve(__dirname, '../..');
 
+/**
+ * Repo resolution, three tiers:
+ *  1. Env override (SDLC_DEV_REPO / SDLC_QA_REPO) — set by the client config,
+ *     e.g. "${workspaceFolder}" in .vscode/mcp.json
+ *  2. Working-directory sniff — clients launch stdio servers with cwd set to
+ *     the open project, so a marker file identifies which repo the user is in
+ *  3. Standard umbrella-workspace layout (orchestrator/ beside repos/)
+ */
+function detectRepoFromCwd(markerFile: string): string | undefined {
+  const cwd = process.cwd();
+  return fs.existsSync(path.join(cwd, markerFile)) ? cwd : undefined;
+}
+
 const REPOS = {
-  dev: path.join(WORKSPACE_ROOT, 'repos', 'Salesforce-Dev'),
-  qa: path.join(WORKSPACE_ROOT, 'repos', 'Salesforce-QA-Automation'),
+  dev: process.env.SDLC_DEV_REPO
+    ?? detectRepoFromCwd('sfdx-project.json')
+    ?? path.join(WORKSPACE_ROOT, 'repos', 'Salesforce-Dev'),
+  qa: process.env.SDLC_QA_REPO
+    ?? detectRepoFromCwd('cucumber.js')
+    ?? path.join(WORKSPACE_ROOT, 'repos', 'Salesforce-QA-Automation'),
 } as const;
 
 // Never expose these through context tools — secrets and machine-local state
@@ -186,12 +204,36 @@ server.registerTool(
     inputSchema: {},
   },
   async () => {
+    const standardsPath = path.join(REPOS.qa, 'AgentInstructions.md');
+    const rawUrl = 'https://raw.githubusercontent.com/Game-Changer/Salesforce-QA-Automation/main/AgentInstructions.md';
     try {
-      const standardsPath = path.join(REPOS.qa, 'AgentInstructions.md');
-      return { content: [{ type: 'text' as const, text: fs.readFileSync(standardsPath, 'utf-8') }] };
+      // Tier 1: local QA clone
+      if (fs.existsSync(standardsPath)) {
+        return { content: [{ type: 'text' as const, text: fs.readFileSync(standardsPath, 'utf-8') }] };
+      }
+      // Tier 2: fetch from GitHub (GITHUB_TOKEN needed if the repo is private)
+      const headers: Record<string, string> = {};
+      if (process.env.GITHUB_TOKEN) {
+        headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+      }
+      const response = await fetch(rawUrl, { headers });
+      if (!response.ok) {
+        throw new Error(`GitHub fetch returned HTTP ${response.status}`);
+      }
+      return { content: [{ type: 'text' as const, text: await response.text() }] };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      return { content: [{ type: 'text' as const, text: `Error: ${message}` }], isError: true };
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text:
+              `Error: standards not available locally (no QA clone at ${REPOS.qa}) and GitHub fetch failed (${message}). ` +
+              `Fallback: read AgentInstructions.md from Game-Changer/Salesforce-QA-Automation using the GitHub MCP server.`,
+          },
+        ],
+        isError: true,
+      };
     }
   }
 );

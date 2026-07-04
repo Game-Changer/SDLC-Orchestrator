@@ -4,8 +4,12 @@
   "description": "MCP server: multi-agent Salesforce SDLC orchestrator (Phase 1 skeleton)",
   "type": "module",
   "main": "dist/index.js",
+  "bin": {
+    "sdlc-orchestrator": "dist/index.js"
+  },
   "scripts": {
     "build": "tsc",
+    "prepare": "npm run build",
     "start": "node dist/index.js",
     "dev": "tsc && node dist/index.js"
   },
