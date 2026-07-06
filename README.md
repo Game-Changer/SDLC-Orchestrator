@@ -24,18 +24,18 @@ The LLM client (Claude / Copilot) is the "Main Agent" the user talks to. This se
 | `read_repo_file` | Read one repo file (`.env`, `.auth`, `.git` blocked) | ✅ Phase 1 |
 | `get_agent_standards` | Mandatory coding standards for generated code | ✅ Phase 1 |
 | `generate_user_story` | Draft story template (local, never touches Jira) | ✅ Phase 1 |
-| `create_jira_story` | Gated write — preview until `confirm=true` | 🔒 Gate live, Jira in Phase 2 |
+| `create_jira_story` | Gated write — preview until `confirm=true` | 🔒 Gate live, Jira wiring in Phase 8 (final) |
 | `review_dev_code` | Dev Code Reviewer: Salesforce security + best-practice review protocol | ✅ Available |
 | `review_qa_code` | QA Code Reviewer: standards-compliance + security review protocol | ✅ Available |
 | `run_qa_tests` | Execute the QA suite by tag (test-runner.js, headless) | ✅ Available |
 | `run_dev_tests` | Run Apex tests via `sf` against the authorized org | ✅ Available |
-| `write_test_cases` | Manual test cases from a story | ⏳ Phase 3 |
-| `generate_qa_automation` | Cucumber/Playwright specs | ⏳ Phase 4 |
-| `generate_dev_code` | Apex/LWC/Flow changes (local only) | ⏳ Phase 5 |
+| `write_test_cases` | Manual test cases from a story | ⏳ Phase 2 |
+| `generate_qa_automation` | Cucumber/Playwright specs | ⏳ Phase 3 |
+| `generate_dev_code` | Apex/LWC/Flow changes (local only) | ⏳ Phase 4 |
 
 ### Sub-agents (7)
 
-Five pipeline agents — User Story Generator, Agile Board Connector, Test Case Writer, QA Automation Writer, Dev Code Generator (Phases 2–5) — plus two **review agents available today**:
+Five pipeline agents — User Story Generator (drafting available now, local drafts), Test Case Writer (Phase 2), QA Automation Writer (Phase 3), Dev Code Generator (Phase 4), Agile Board Connector (Phase 8 — Jira is deliberately last) — plus two **review agents available today**:
 
 - **dev-code-reviewer** — reviews Salesforce code: SOQL injection, CRUD/FLS, sharing, bulkification, governor limits, test quality; verifies by running Apex tests
 - **qa-code-reviewer** — reviews automation code against AgentInstructions.md: OOP structure, typed exception handling, credential hygiene; verifies by running the tagged suite
@@ -119,9 +119,10 @@ You should see a `tools/list` response naming all nine tools.
 
 | Phase | Deliverable | Status |
 |---|---|---|
-| 1 | MCP layer + orchestrator skeleton (this) | ✅ |
-| 2 | User Story Generator + gated Jira integration | ⏳ |
-| 3 | Test Case Writer | ⏳ |
-| 4 | QA Automation Writer | ⏳ |
-| 5 | Dev Code Generator | ⏳ |
-| 6 | End-to-end pilot | ⏳ |
+| 1 | MCP layer + orchestrator skeleton (this) + review agents + local story drafting | ✅ |
+| 2 | Test Case Writer | ⏳ |
+| 3 | QA Automation Writer | ⏳ |
+| 4 | Dev Code Generator | ⏳ |
+| 5 | End-to-end pilot (stories as local drafts) | ⏳ |
+| 6–7 | Enterprise hardening, team enablement | ⏳ |
+| 8 | Jira integration — Agile Board Connector + wiring `create_jira_story` (gate already built) | ⏳ |

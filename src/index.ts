@@ -12,7 +12,8 @@
  *  2. Context assembly    — safe read access to the two local repo clones
  *  3. Confirmation gates  — write-style tools refuse to act without an
  *                           explicit confirm flag (demonstrated on the
- *                           Jira story stub; real Jira lands in Phase 2)
+ *                           Jira story stub; real Jira lands in Phase 8,
+ *                           deliberately the final phase)
  *
  * The LLM client (Claude / Copilot) does the actual generation; this server
  * supplies routing, context, standards, and gates.
@@ -103,11 +104,11 @@ interface Route {
 }
 
 const ROUTES: Route[] = [
-  { agent: 'user-story-generator', phase: 2, status: 'planned', keywords: /\b(user stor(y|ies)|requirement|epic|acceptance criteria|as a user)\b/i },
-  { agent: 'test-case-writer', phase: 3, status: 'planned', keywords: /\b(test case|manual test|test plan|test scenario)\b/i },
-  { agent: 'qa-automation-writer', phase: 4, status: 'planned', keywords: /\b(automat(e|ion)|playwright|cucumber|bdd|feature file|selenium|regression suite)\b/i },
-  { agent: 'dev-code-generator', phase: 5, status: 'planned', keywords: /\b(apex|lwc|lightning web component|trigger|flow|validation rule|salesforce code|metadata)\b/i },
-  { agent: 'agile-board-connector', phase: 2, status: 'planned', keywords: /\b(jira|board|sprint|backlog|ticket|issue)\b/i },
+  { agent: 'user-story-generator', phase: 1, status: 'available', keywords: /\b(user stor(y|ies)|requirement|epic|acceptance criteria|as a user)\b/i },
+  { agent: 'test-case-writer', phase: 2, status: 'planned', keywords: /\b(test case|manual test|test plan|test scenario)\b/i },
+  { agent: 'qa-automation-writer', phase: 3, status: 'planned', keywords: /\b(automat(e|ion)|playwright|cucumber|bdd|feature file|selenium|regression suite)\b/i },
+  { agent: 'dev-code-generator', phase: 4, status: 'planned', keywords: /\b(apex|lwc|lightning web component|trigger|flow|validation rule|salesforce code|metadata)\b/i },
+  { agent: 'agile-board-connector', phase: 8, status: 'planned', keywords: /\b(jira|board|sprint|backlog|ticket|issue)\b/i },
   { agent: 'dev-code-reviewer', phase: 1, status: 'available', keywords: /\b(review|audit|security (issue|scan|review)|static analysis|code quality)\b.*\b(apex|lwc|trigger|flow|dev|salesforce)\b|\b(apex|lwc|trigger|flow)\b.*\b(review|audit|scan)\b/i },
   { agent: 'qa-code-reviewer', phase: 1, status: 'available', keywords: /\b(review|audit|security (issue|scan|review)|static analysis|code quality|standards? compliance)\b.*\b(qa|automation|test|framework|playwright|cucumber)\b|\b(automation|framework)\b.*\b(review|audit)\b/i },
 ];
@@ -272,7 +273,7 @@ server.registerTool(
                 ],
                 definition_of_done: ['Code reviewed', 'Test cases written', 'QA automation added', 'Deployed to sandbox'],
               },
-              next_step: 'Fill in the template with the LLM, review with the human, then call create_jira_story with confirm=true.',
+              next_step: 'Fill in the template with the LLM and review with the human. Stories remain local drafts until Phase 8 wires Jira; create_jira_story demonstrates the gated-write flow that will publish them.',
             },
             null,
             2
@@ -310,12 +311,12 @@ server.registerTool(
         ],
       };
     }
-    // Phase 2 will wire the real Jira API here (scoped token, single project)
+    // Phase 8 (the final phase) will wire the real Jira API here (scoped token, single project)
     return {
       content: [
         {
           type: 'text' as const,
-          text: 'Confirmation received, but Jira integration is not connected yet (Phase 2). Nothing was created. The gated-write flow you just exercised is exactly how the real call will work.',
+          text: 'Confirmation received, but Jira integration is deliberately the final phase (Phase 8) and is not connected yet. Nothing was created — save the approved story as a local draft instead. The gated-write flow you just exercised is exactly how the real call will work.',
         },
       ],
     };
@@ -506,9 +507,9 @@ server.registerTool(
 
 // --- Sub-agent stubs for later phases -------------------------------------
 const STUBS: Array<{ name: string; title: string; phase: number }> = [
-  { name: 'write_test_cases', title: 'Write manual test cases from a story', phase: 3 },
-  { name: 'generate_qa_automation', title: 'Generate Cucumber/Playwright automation', phase: 4 },
-  { name: 'generate_dev_code', title: 'Generate Apex/LWC/Flow changes (local only)', phase: 5 },
+  { name: 'write_test_cases', title: 'Write manual test cases from a story', phase: 2 },
+  { name: 'generate_qa_automation', title: 'Generate Cucumber/Playwright automation', phase: 3 },
+  { name: 'generate_dev_code', title: 'Generate Apex/LWC/Flow changes (local only)', phase: 4 },
 ];
 
 for (const stub of STUBS) {
