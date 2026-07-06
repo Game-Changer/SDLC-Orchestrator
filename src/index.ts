@@ -105,7 +105,7 @@ interface Route {
 
 const ROUTES: Route[] = [
   { agent: 'user-story-generator', phase: 1, status: 'available', keywords: /\b(user stor(y|ies)|requirement|epic|acceptance criteria|as a user)\b/i },
-  { agent: 'test-case-writer', phase: 2, status: 'planned', keywords: /\b(test case|manual test|test plan|test scenario)\b/i },
+  { agent: 'test-case-writer', phase: 2, status: 'available', keywords: /\b(test case|manual test|test plan|test scenario)\b/i },
   { agent: 'qa-automation-writer', phase: 3, status: 'planned', keywords: /\b(automat(e|ion)|playwright|cucumber|bdd|feature file|selenium|regression suite)\b/i },
   { agent: 'dev-code-generator', phase: 4, status: 'planned', keywords: /\b(apex|lwc|lightning web component|trigger|flow|validation rule|salesforce code|metadata)\b/i },
   { agent: 'agile-board-connector', phase: 8, status: 'planned', keywords: /\b(jira|board|sprint|backlog|ticket|issue)\b/i },
@@ -323,6 +323,61 @@ server.registerTool(
   }
 );
 
+// --- Test Case Writer (Phase 2 — available) --------------------------------
+
+server.registerTool(
+  'write_test_cases',
+  {
+    title: 'Test Case Writer: protocol + template for manual test cases',
+    description:
+      'Turn a user story into structured manual test cases. Returns the writing protocol, the document template, and the conventions. ' +
+      'Follow the protocol: derive cases from every acceptance criterion, build the coverage matrix, then write the document to ' +
+      'test-cases/<story-id>-<slug>.md in the QA repo as a LOCAL file (human reviews and pushes — never commit).',
+    inputSchema: {
+      story: z.string().describe('The user story text including acceptance criteria (local draft or Jira text)'),
+      feature_area: z.string().default('GENERAL').describe('Short area code used in test case IDs, e.g. LOGIN, ACCOUNT'),
+    },
+  },
+  async ({ story, feature_area }) => {
+    const area = feature_area.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 12) || 'GENERAL';
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify(
+            {
+              agent: 'test-case-writer',
+              story_received: story.substring(0, 200),
+              writing_protocol: [
+                '1. Extract every acceptance criterion from the story; number them AC-1, AC-2, ...',
+                '2. For EACH criterion derive: one positive case, negative case(s) for every input/validation rule, edge cases (empty, boundary, duplicate), and a permission/profile case where access control is relevant',
+                `3. Assign IDs sequentially: TC-${area}-001, TC-${area}-002, ... — check test-cases/ for existing ${area} files first and continue the sequence, never renumber existing cases`,
+                '4. Write steps in Gherkin-friendly wording (Given/When/Then translatable) so the QA Automation Writer can lift them directly in Phase 3',
+                '5. Build the coverage matrix: every AC maps to at least one test case — an unmapped AC means you are not done',
+                '6. Mark each case as an automation Candidate (with a proposed tag from the vocabulary) or Manual-only (with the reason)',
+                `7. Save as a LOCAL file: test-cases/<story-id>-<slug>.md in the QA repo (template: test-cases/TEMPLATE.md). Do not commit or push`,
+              ],
+              conventions: {
+                id_scheme: `TC-${area}-NNN`,
+                priorities: ['Critical', 'High', 'Medium', 'Low'],
+                types: ['Positive', 'Negative', 'Edge', 'Permission'],
+                tag_vocabulary: ['@Smoke', '@Regression', '@CriticalPath', '@Login', '@AccountCreation', 'or a new @FeatureArea tag (see AgentInstructions for new-tag follow-ups)'],
+                automation_rule: 'Deterministic, repeatable, UI-reachable cases are Candidates; org-policy, email, or visual-judgement cases are Manual-only with a stated reason',
+              },
+              template:
+                `# Test Cases — <Story title>\n\n**Story:** <story id / local draft reference>\n**Feature area:** ${area}\n**Author:** <agent + human reviewer>\n**Date:** <YYYY-MM-DD>\n\n## Coverage matrix\n\n| Acceptance criterion | Test cases |\n|---|---|\n| AC-1: <text> | TC-${area}-001, TC-${area}-002 |\n\n---\n\n## TC-${area}-001 — <title>\n\n- **Priority:** Critical | High | Medium | Low\n- **Type:** Positive | Negative | Edge | Permission\n- **Automation:** Candidate (@Tag) | Manual-only (<reason>)\n- **Preconditions:** <state before the test>\n\n| # | Step (action) | Expected result |\n|---|---|---|\n| 1 | <Given/When wording> | <observable outcome> |\n`,
+              output_location: 'Salesforce-QA-Automation/test-cases/<story-id>-<slug>.md (see test-cases/README.md; worked example: test-cases/US-001-salesforce-login.md)',
+              next_step: 'After human review, the QA Automation Writer (Phase 3) converts automation Candidates into Cucumber scenarios.',
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
+  }
+);
+
 // --- Code review agents (available now — read-only + local test execution) --
 
 server.registerTool(
@@ -507,7 +562,6 @@ server.registerTool(
 
 // --- Sub-agent stubs for later phases -------------------------------------
 const STUBS: Array<{ name: string; title: string; phase: number }> = [
-  { name: 'write_test_cases', title: 'Write manual test cases from a story', phase: 2 },
   { name: 'generate_qa_automation', title: 'Generate Cucumber/Playwright automation', phase: 3 },
   { name: 'generate_dev_code', title: 'Generate Apex/LWC/Flow changes (local only)', phase: 4 },
 ];

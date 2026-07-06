@@ -29,13 +29,13 @@ The LLM client (Claude / Copilot) is the "Main Agent" the user talks to. This se
 | `review_qa_code` | QA Code Reviewer: standards-compliance + security review protocol | ✅ Available |
 | `run_qa_tests` | Execute the QA suite by tag (test-runner.js, headless) | ✅ Available |
 | `run_dev_tests` | Run Apex tests via `sf` against the authorized org | ✅ Available |
-| `write_test_cases` | Manual test cases from a story | ⏳ Phase 2 |
+| `write_test_cases` | Test Case Writer: protocol + template → `test-cases/<story>.md` (local) | ✅ Phase 2 |
 | `generate_qa_automation` | Cucumber/Playwright specs | ⏳ Phase 3 |
 | `generate_dev_code` | Apex/LWC/Flow changes (local only) | ⏳ Phase 4 |
 
 ### Sub-agents (7)
 
-Five pipeline agents — User Story Generator (drafting available now, local drafts), Test Case Writer (Phase 2), QA Automation Writer (Phase 3), Dev Code Generator (Phase 4), Agile Board Connector (Phase 8 — Jira is deliberately last) — plus two **review agents available today**:
+Five pipeline agents — User Story Generator (available, local drafts), Test Case Writer (✅ available — writes `test-cases/<story>.md` per the QA repo conventions), QA Automation Writer (Phase 3), Dev Code Generator (Phase 4), Agile Board Connector (Phase 8 — Jira is deliberately last) — plus two **review agents available today**:
 
 - **dev-code-reviewer** — reviews Salesforce code: SOQL injection, CRUD/FLS, sharing, bulkification, governor limits, test quality; verifies by running Apex tests
 - **qa-code-reviewer** — reviews automation code against AgentInstructions.md: OOP structure, typed exception handling, credential hygiene; verifies by running the tagged suite
@@ -120,7 +120,7 @@ You should see a `tools/list` response naming all nine tools.
 | Phase | Deliverable | Status |
 |---|---|---|
 | 1 | MCP layer + orchestrator skeleton (this) + review agents + local story drafting | ✅ |
-| 2 | Test Case Writer | ⏳ |
+| 2 | Test Case Writer | ✅ |
 | 3 | QA Automation Writer | ⏳ |
 | 4 | Dev Code Generator | ⏳ |
 | 5 | End-to-end pilot (stories as local drafts) | ⏳ |
