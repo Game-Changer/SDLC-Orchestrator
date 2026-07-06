@@ -30,7 +30,8 @@ import { promisify } from 'util';
 const execFileAsync = promisify(execFile);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const WORKSPACE_ROOT = path.resolve(__dirname, '../..');
+// This package lives at repos/SDLC-Orchestrator, so sibling clones are one level up
+const REPOS_DIR = path.resolve(__dirname, '../..');
 
 /**
  * Repo resolution, three tiers:
@@ -38,7 +39,7 @@ const WORKSPACE_ROOT = path.resolve(__dirname, '../..');
  *     e.g. "${workspaceFolder}" in .vscode/mcp.json
  *  2. Working-directory sniff — clients launch stdio servers with cwd set to
  *     the open project, so a marker file identifies which repo the user is in
- *  3. Standard umbrella-workspace layout (orchestrator/ beside repos/)
+ *  3. Standard umbrella-workspace layout (this repo cloned at repos/SDLC-Orchestrator beside the Salesforce clones)
  */
 function detectRepoFromCwd(markerFile: string): string | undefined {
   const cwd = process.cwd();
@@ -48,10 +49,10 @@ function detectRepoFromCwd(markerFile: string): string | undefined {
 const REPOS = {
   dev: process.env.SDLC_DEV_REPO
     ?? detectRepoFromCwd('sfdx-project.json')
-    ?? path.join(WORKSPACE_ROOT, 'repos', 'Salesforce-Dev'),
+    ?? path.join(REPOS_DIR, 'Salesforce-Dev'),
   qa: process.env.SDLC_QA_REPO
     ?? detectRepoFromCwd('cucumber.js')
-    ?? path.join(WORKSPACE_ROOT, 'repos', 'Salesforce-QA-Automation'),
+    ?? path.join(REPOS_DIR, 'Salesforce-QA-Automation'),
 } as const;
 
 // Never expose these through context tools — secrets and machine-local state
@@ -332,7 +333,7 @@ server.registerTool(
     description:
       'Turn a user story into structured manual test cases. Returns the writing protocol, the document template, and the conventions. ' +
       'Follow the protocol: derive cases from every acceptance criterion, build the coverage matrix, then write the document to ' +
-      'test-cases/<story-id>-<slug>.md in the QA repo as a LOCAL file (human reviews and pushes — never commit).',
+      'repos/TestCases/<story-id>-<slug>.md — the staging folder beside the repo clones (outside git; human reviews).',
     inputSchema: {
       story: z.string().describe('The user story text including acceptance criteria (local draft or Jira text)'),
       feature_area: z.string().default('GENERAL').describe('Short area code used in test case IDs, e.g. LOGIN, ACCOUNT'),
@@ -351,11 +352,11 @@ server.registerTool(
               writing_protocol: [
                 '1. Extract every acceptance criterion from the story; number them AC-1, AC-2, ...',
                 '2. For EACH criterion derive: one positive case, negative case(s) for every input/validation rule, edge cases (empty, boundary, duplicate), and a permission/profile case where access control is relevant',
-                `3. Assign IDs sequentially: TC-${area}-001, TC-${area}-002, ... — check test-cases/ for existing ${area} files first and continue the sequence, never renumber existing cases`,
+                `3. Assign IDs sequentially: TC-${area}-001, TC-${area}-002, ... — check repos/TestCases/ for existing ${area} files first and continue the sequence, never renumber existing cases`,
                 '4. Write steps in Gherkin-friendly wording (Given/When/Then translatable) so the QA Automation Writer can lift them directly in Phase 3',
                 '5. Build the coverage matrix: every AC maps to at least one test case — an unmapped AC means you are not done',
                 '6. Mark each case as an automation Candidate (with a proposed tag from the vocabulary) or Manual-only (with the reason)',
-                `7. Save as a LOCAL file: test-cases/<story-id>-<slug>.md in the QA repo (template: test-cases/TEMPLATE.md). Do not commit or push`,
+                `7. Save as a LOCAL file: repos/TestCases/<story-id>-<slug>.md, beside the repo clones (template: TestCases/TEMPLATE.md; create the folder if missing). Never commit or push`,
               ],
               conventions: {
                 id_scheme: `TC-${area}-NNN`,
@@ -366,7 +367,7 @@ server.registerTool(
               },
               template:
                 `# Test Cases — <Story title>\n\n**Story:** <story id / local draft reference>\n**Feature area:** ${area}\n**Author:** <agent + human reviewer>\n**Date:** <YYYY-MM-DD>\n\n## Coverage matrix\n\n| Acceptance criterion | Test cases |\n|---|---|\n| AC-1: <text> | TC-${area}-001, TC-${area}-002 |\n\n---\n\n## TC-${area}-001 — <title>\n\n- **Priority:** Critical | High | Medium | Low\n- **Type:** Positive | Negative | Edge | Permission\n- **Automation:** Candidate (@Tag) | Manual-only (<reason>)\n- **Preconditions:** <state before the test>\n\n| # | Step (action) | Expected result |\n|---|---|---|\n| 1 | <Given/When wording> | <observable outcome> |\n`,
-              output_location: 'Salesforce-QA-Automation/test-cases/<story-id>-<slug>.md (see test-cases/README.md; worked example: test-cases/US-001-salesforce-login.md)',
+              output_location: 'repos/TestCases/<story-id>-<slug>.md — staging folder beside the repo clones (see TestCases/README.md; worked example: TestCases/US-001-salesforce-login.md)',
               next_step: 'After human review, the QA Automation Writer (Phase 3) converts automation Candidates into Cucumber scenarios.',
             },
             null,

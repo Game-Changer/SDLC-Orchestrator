@@ -29,13 +29,13 @@ The LLM client (Claude / Copilot) is the "Main Agent" the user talks to. This se
 | `review_qa_code` | QA Code Reviewer: standards-compliance + security review protocol | ✅ Available |
 | `run_qa_tests` | Execute the QA suite by tag (test-runner.js, headless) | ✅ Available |
 | `run_dev_tests` | Run Apex tests via `sf` against the authorized org | ✅ Available |
-| `write_test_cases` | Test Case Writer: protocol + template → `test-cases/<story>.md` (local) | ✅ Phase 2 |
+| `write_test_cases` | Test Case Writer: protocol + template → `repos/TestCases/<story>.md` (local staging) | ✅ Phase 2 |
 | `generate_qa_automation` | Cucumber/Playwright specs | ⏳ Phase 3 |
 | `generate_dev_code` | Apex/LWC/Flow changes (local only) | ⏳ Phase 4 |
 
 ### Sub-agents (7)
 
-Five pipeline agents — User Story Generator (available, local drafts), Test Case Writer (✅ available — writes `test-cases/<story>.md` per the QA repo conventions), QA Automation Writer (Phase 3), Dev Code Generator (Phase 4), Agile Board Connector (Phase 8 — Jira is deliberately last) — plus two **review agents available today**:
+Five pipeline agents — User Story Generator (available, local drafts), Test Case Writer (✅ available — writes `repos/TestCases/<story>.md` per the staging-folder conventions), QA Automation Writer (Phase 3), Dev Code Generator (Phase 4), Agile Board Connector (Phase 8 — Jira is deliberately last) — plus two **review agents available today**:
 
 - **dev-code-reviewer** — reviews Salesforce code: SOQL injection, CRUD/FLS, sharing, bulkification, governor limits, test quality; verifies by running Apex tests
 - **qa-code-reviewer** — reviews automation code against AgentInstructions.md: OOP structure, typed exception handling, credential hygiene; verifies by running the tagged suite
@@ -43,20 +43,21 @@ Five pipeline agents — User Story Generator (available, local drafts), Test Ca
 ## Setup
 
 ```bash
-git clone https://github.com/Game-Changer/SDLC-Orchestrator.git orchestrator
-cd orchestrator
+git clone https://github.com/Game-Changer/SDLC-Orchestrator.git repos/SDLC-Orchestrator
+cd repos/SDLC-Orchestrator
 npm install
 npm run build     # compiles src/ → dist/
 ```
 
-Expected workspace layout (the context tools resolve `../repos/...` relative to this folder):
+Expected workspace layout (the context tools resolve sibling clones one level up from this folder):
 
 ```
 <workspace>/
-├── orchestrator/                      # this repo
 └── repos/
+    ├── SDLC-Orchestrator/             # this repo
     ├── Salesforce-Dev/                # local clone
-    └── Salesforce-QA-Automation/      # local clone
+    ├── Salesforce-QA-Automation/      # local clone
+    └── TestCases/                     # local staging for test case drafts (outside git)
 ```
 
 ### Smoke test
@@ -80,7 +81,7 @@ You should see a `tools/list` response naming all nine tools.
   "mcpServers": {
     "sdlc-orchestrator": {
       "command": "node",
-      "args": ["orchestrator/dist/index.js"]
+      "args": ["repos/SDLC-Orchestrator/dist/index.js"]
     }
   }
 }
@@ -94,7 +95,7 @@ You should see a `tools/list` response naming all nine tools.
     "sdlc-orchestrator": {
       "type": "stdio",
       "command": "node",
-      "args": ["${workspaceFolder}/orchestrator/dist/index.js"]
+      "args": ["${workspaceFolder}/repos/SDLC-Orchestrator/dist/index.js"]
     }
   }
 }
