@@ -333,7 +333,7 @@ server.registerTool(
     description:
       'Turn a user story into structured manual test cases. Returns the writing protocol, the document template, and the conventions. ' +
       'Follow the protocol: derive cases from every acceptance criterion, build the coverage matrix, then write the document to ' +
-      'repos/TestCases/<story-id>-<slug>.md — the staging folder beside the repo clones (outside git; human reviews).',
+      'repos/TestCases/<story-id> Testcases.md — the staging folder beside the repo clones (outside git; human reviews).',
     inputSchema: {
       story: z.string().describe('The user story text including acceptance criteria (local draft or Jira text)'),
       feature_area: z.string().default('GENERAL').describe('Short area code used in test case IDs, e.g. LOGIN, ACCOUNT'),
@@ -356,7 +356,7 @@ server.registerTool(
                 '4. Write steps in Gherkin-friendly wording (Given/When/Then translatable) so the QA Automation Writer can lift them directly in Phase 3',
                 '5. Build the coverage matrix: every AC maps to at least one test case — an unmapped AC means you are not done',
                 '6. Mark each case as an automation Candidate (with a proposed tag from the vocabulary) or Manual-only (with the reason)',
-                `7. Save as a LOCAL file: repos/TestCases/<story-id>-<slug>.md, beside the repo clones (template: TestCases/TEMPLATE.md; create the folder if missing). Never commit or push`,
+                `7. Save as a LOCAL file: repos/TestCases/<story-id> Testcases.md (e.g. "US-002 Testcases.md"), beside the repo clones (template: TestCases/TEMPLATE.md; create the folder if missing). Never commit or push`,
               ],
               conventions: {
                 id_scheme: `TC-${area}-NNN`,
@@ -367,7 +367,7 @@ server.registerTool(
               },
               template:
                 `# Test Cases — <Story title>\n\n**Story:** <story id / local draft reference>\n**Feature area:** ${area}\n**Author:** <agent + human reviewer>\n**Date:** <YYYY-MM-DD>\n\n## Coverage matrix\n\n| Acceptance criterion | Test cases |\n|---|---|\n| AC-1: <text> | TC-${area}-001, TC-${area}-002 |\n\n---\n\n## TC-${area}-001 — <title>\n\n- **Priority:** Critical | High | Medium | Low\n- **Type:** Positive | Negative | Edge | Permission\n- **Automation:** Candidate (@Tag) | Manual-only (<reason>)\n- **Preconditions:** <state before the test>\n\n| # | Step (action) | Expected result |\n|---|---|---|\n| 1 | <Given/When wording> | <observable outcome> |\n`,
-              output_location: 'repos/TestCases/<story-id>-<slug>.md — staging folder beside the repo clones (see TestCases/README.md; worked example: TestCases/US-001-salesforce-login.md)',
+              output_location: 'repos/TestCases/<story-id> Testcases.md — staging folder beside the repo clones (see TestCases/README.md; worked example: "TestCases/US-001 Testcases.md")',
               next_step: 'After human review, the QA Automation Writer (Phase 3) converts automation Candidates into Cucumber scenarios.',
             },
             null,
